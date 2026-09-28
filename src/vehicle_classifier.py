@@ -51,9 +51,9 @@ class VehicleClassifier:
 
         h, w = frame.shape[:2]
 
-        if w > 640:
-            scale = 640.0 / w
-            proc_frame = cv2.resize(frame, (640, int(h * scale)))
+        if w > 480:
+            scale = 480.0 / w
+            proc_frame = cv2.resize(frame, (480, int(h * scale)))
             inv_scale = 1.0 / scale
         else:
             proc_frame = frame

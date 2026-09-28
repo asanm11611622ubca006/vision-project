@@ -216,8 +216,10 @@ class ExcelStorage:
 
     @property
     def unique_plates(self) -> List[dict]:
-        """Return list of all unique vehicle/plate records."""
-        return list(self._registry.values())
+        """Return list of all unique vehicle/plate records with alert plates at the top."""
+        recs = list(self._registry.values())
+        recs.sort(key=lambda r: (not r.get("is_alert", False), r.get("is_missing", False)))
+        return recs
 
     @property
     def total_vehicles(self) -> int:

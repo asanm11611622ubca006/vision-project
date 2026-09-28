@@ -98,7 +98,7 @@ class PlateOCREngine:
         best_plate = ""
         best_conf = 0.0
 
-        for img_var in [clahe, roi_scaled]:
+        for img_var in [clahe]:
             try:
                 results = self.reader.readtext(
                     img_var,
