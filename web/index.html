@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VisionPlate AI — Vehicle Number Plate Recognition</title>
+  <meta name="description" content="Upload vehicle videos for automatic number plate recognition, deduplication, and Excel export.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    /* ── Design Tokens ──────────────────────────────────────── */
+    :root {
+      --bg: #070a0f;
+      --surface: rgba(14, 18, 28, 0.82);
+      --border: rgba(255, 255, 255, 0.07);
+      --border-hover: rgba(255, 255, 255, 0.18);
+      --primary: #38bdf8;
+      --primary-dim: rgba(56, 189, 248, 0.15);
+      --accent: #22c55e;
+      --accent-dim: rgba(34, 197, 94, 0.15);
+      --danger: #ef4444;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --radius: 16px;
+      --shadow: 0 12px 40px rgba(0,0,0,0.55);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse at 0% 0%, rgba(56,189,248,0.10) 0, transparent 55%),
+        radial-gradient(ellipse at 100% 100%, rgba(34,197,94,0.06) 0, transparent 55%);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 20px 24px 40px;
+    }
+
+    .container { max-width: 1440px; margin: 0 auto; }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 24px;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .logo {
+      width: 46px; height: 46px; border-radius: 13px;
+      background: linear-gradient(135deg, #0284c7, #06b6d4);
+      display: grid; place-items: center;
+      box-shadow: 0 0 22px rgba(56,189,248,0.30);
+    }
+    .logo svg { width: 25px; height: 25px; fill: #fff; }
+    .brand h1 {
+      font-size: 21px; font-weight: 800; letter-spacing: -0.4px;
+      background: linear-gradient(to right, #fff, #94a3b8);
+      background-clip: text;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .brand p { font-size: 12.5px; color: var(--muted); font-weight: 500; }
+
+    .header-actions { display: flex; gap: 10px; }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 9px 16px; font-size: 13.5px; font-weight: 600;
+      border-radius: 10px; cursor: pointer; border: 1px solid transparent;
+      transition: all .2s; text-decoration: none; font-family: inherit;
+    }
+    .btn svg { width: 15px; height: 15px; fill: currentColor; flex-shrink: 0; }
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #0ea5e9); color: #fff;
+      box-shadow: 0 4px 16px rgba(2,132,199,0.35);
+    }
+    .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
+    .btn-ghost {
+      background: rgba(255,255,255,0.04); border-color: var(--border); color: var(--text);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.08); border-color: var(--border-hover); }
+    .btn-accent {
+      background: linear-gradient(135deg, #15803d, #22c55e); color: #fff;
+      box-shadow: 0 4px 14px rgba(34,197,94,0.3);
+    }
+    .btn-accent:hover { filter: brightness(1.1); }
+
+    /* ── Grid ────────────────────────────────────────────────── */
+    .grid {
+      display: grid; grid-template-columns: 1.15fr 1fr; gap: 22px;
+    }
+    @media (max-width: 1060px) { .grid { grid-template-columns: 1fr; } }
+
+    /* ── Panel ───────────────────────────────────────────────── */
+    .panel {
+      background: var(--surface); backdrop-filter: blur(18px);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 22px; box-shadow: var(--shadow);
+    }
+    .panel-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 18px;
+    }
+    .panel-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 9px; }
+    .panel-title svg { width: 18px; height: 18px; fill: var(--primary); }
+    .badge {
+      font-size: 11.5px; padding: 3px 10px; border-radius: 20px; font-weight: 600;
+      background: var(--primary-dim); color: var(--primary);
+      border: 1px solid rgba(56,189,248,0.2);
+    }
+    .badge-green { background: var(--accent-dim); color: var(--accent); border-color: rgba(34,197,94,0.2); }
+
+    /* ── Upload Area ────────────────────────────────────────── */
+    .upload {
+      border: 2px dashed rgba(255,255,255,0.12); border-radius: 14px;
+      padding: 34px 20px; text-align: center; cursor: pointer;
+      transition: all .25s; background: rgba(255,255,255,0.012);
+    }
+    .upload:hover, .upload.dragover {
+      border-color: var(--primary); background: rgba(56,189,248,0.04);
+    }
+    .upload-icon {
+      width: 50px; height: 50px; margin: 0 auto 12px; border-radius: 13px;
+      background: var(--primary-dim); display: grid; place-items: center;
+    }
+    .upload-icon svg { width: 24px; height: 24px; fill: var(--primary); }
+    .upload h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .upload p { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
+
+    /* ── Progress ────────────────────────────────────────────── */
+    .progress-wrap { margin-top: 18px; display: none; }
+    .progress-meta { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; margin-bottom: 7px; }
+    .progress-track {
+      height: 9px; background: rgba(255,255,255,0.05); border-radius: 9px; overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%; width: 0%; border-radius: 9px;
+      background: linear-gradient(90deg, #0284c7, #22c55e);
+      transition: width .35s ease; box-shadow: 0 0 10px var(--accent-dim);
+    }
+
+    /* ── Stat Cards ──────────────────────────────────────────── */
+    .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 16px; }
+    .stat {
+      background: rgba(255,255,255,0.025); border: 1px solid var(--border);
+      border-radius: 13px; padding: 13px; text-align: center;
+    }
+    .stat-val {
+      font-size: 21px; font-weight: 800;
+      font-family: 'JetBrains Mono', monospace; color: var(--primary);
+    }
+    .stat-lbl { font-size: 11.5px; color: var(--muted); font-weight: 500; margin-top: 1px; }
+
+    /* ── Video Player ────────────────────────────────────────── */
+    .video-wrap {
+      margin-top: 18px; border-radius: 13px; overflow: hidden;
+      border: 1px solid var(--border); background: #000; display: none;
+    }
+    .video-wrap video { width: 100%; max-height: 380px; display: block; }
+
+    /* ── Results ─────────────────────────────────────────────── */
+    .search-bar {
+      display: flex; gap: 8px; margin-bottom: 14px;
+    }
+    .search-bar input {
+      flex: 1; background: rgba(255,255,255,0.035); border: 1px solid var(--border);
+      border-radius: 10px; padding: 9px 13px; color: var(--text);
+      font-size: 13.5px; outline: none; font-family: inherit;
+      transition: border-color .2s;
+    }
+    .search-bar input:focus { border-color: var(--primary); }
+
+    /* ── Table View ───────────────────────────────────────────── */
+    .table-container {
+      max-height: 560px;
+      overflow-y: auto;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.015);
+    }
+    .table-container::-webkit-scrollbar { width: 6px; height: 6px; }
+    .table-container::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 6px; }
+
+    .v-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+    .v-table thead {
+      position: sticky;
+      top: 0;
+      background: #0c111a;
+      z-index: 10;
+    }
+    .v-table th {
+      padding: 12px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .v-table td {
+      padding: 11px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .v-table tbody tr {
+      transition: background 0.15s ease;
+      animation: fadeUp .25s ease both;
+    }
+    .v-table tbody tr:hover {
+      background: rgba(56, 189, 248, 0.05);
+    }
+    .row-index {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* Vehicle Type Pills */
+    .vtype-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .vtype-car { background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25); }
+    .vtype-motorcycle { background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25); }
+    .vtype-bus { background: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.25); }
+    .vtype-truck { background: rgba(34, 197, 94, 0.12); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.25); }
+    .vtype-bicycle { background: rgba(20, 184, 166, 0.12); color: #2dd4bf; border: 1px solid rgba(20, 184, 166, 0.25); }
+    .vtype-default { background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); }
+
+    /* Number plate pill (No image, only clean high-contrast text badge) */
+    .plate-badge {
+      display: inline-flex;
+      align-items: center;
+      background: #f8fafc;
+      color: #0f172a;
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 1.3px;
+      border: 2px solid #0f172a;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      transition: all 0.2s ease;
+    }
+    .plate-badge .flag {
+      background: #0284c7;
+      color: #fff;
+      font-size: 7.5px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 2px;
+      margin-right: 6px;
+      letter-spacing: 0;
+    }
+
+    /* Special Hotlist Alert: TN 50A P8219 (Always Red) */
+    .plate-badge-alert-red {
+      background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important;
+      color: #ffffff !important;
+      border: 2px solid #fca5a5 !important;
+      box-shadow: 0 0 16px rgba(239, 68, 68, 0.75), inset 0 0 8px rgba(255, 255, 255, 0.25) !important;
+      font-weight: 800 !important;
+      letter-spacing: 1.5px !important;
+      animation: alertPulse 1.8s infinite ease-in-out;
+    }
+    .plate-badge-alert-red .flag-alert {
+      background: #7f1d1d !important;
+      color: #fecaca !important;
+      font-weight: 900 !important;
+      font-size: 8px;
+      padding: 1px 5px;
+      border-radius: 2px;
+      margin-right: 6px;
+      letter-spacing: 0.5px;
+      border-right: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    @keyframes alertPulse {
+      0%, 100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.6); transform: scale(1); }
+      50% { box-shadow: 0 0 22px rgba(239, 68, 68, 0.95); transform: scale(1.02); }
+    }
+
+    /* Missing Number Plate badge */
+    .plate-badge-missing {
+      background: rgba(245, 158, 11, 0.12) !important;
+      color: #fbbf24 !important;
+      border: 1px dashed rgba(245, 158, 11, 0.7) !important;
+      box-shadow: none !important;
+      font-weight: 700 !important;
+      font-size: 13px !important;
+      letter-spacing: 0.5px !important;
+    }
+    .plate-badge-missing .flag-missing {
+      background: rgba(245, 158, 11, 0.3) !important;
+      color: #fef3c7 !important;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 2px;
+      margin-right: 6px;
+    }
+
+    /* Alert Banner */
+    .alert-banner {
+      background: linear-gradient(90deg, rgba(239, 68, 68, 0.22), rgba(185, 28, 28, 0.28));
+      border: 1px solid #ef4444;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      color: #fca5a5;
+      font-size: 13px;
+      font-weight: 700;
+      animation: alertPulse 2.2s infinite ease-in-out;
+    }
+    .alert-banner svg { width: 18px; height: 18px; fill: #ef4444; flex-shrink: 0; }
+
+    /* Filter pills */
+    .filter-pills {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .filter-pill {
+      font-size: 11.5px;
+      padding: 4px 10px;
+      border-radius: 14px;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .filter-pill:hover, .filter-pill.active {
+      background: var(--primary-dim);
+      color: var(--primary);
+      border-color: rgba(56, 189, 248, 0.35);
+    }
+
+    .table-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 4px 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .conf-badge {
+      font-size: 11px; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 3px 8px; border-radius: 14px;
+      background: var(--accent-dim); color: #4ade80;
+      border: 1px solid rgba(34,197,94,0.22);
+      display: inline-block;
+    }
+
+    .empty-state { text-align: center; padding: 54px 20px; color: var(--muted); }
+    .empty-state .icon { font-size: 38px; margin-bottom: 10px; opacity: .5; }
+
+    /* ── Toast ────────────────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #1e293b; border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 18px; font-size: 13.5px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 8px;
+      transform: translateY(80px); opacity: 0; transition: all .35s;
+      z-index: 100; pointer-events: none;
+    }
+    /* ── Uploaded Videos History ─────────────────────────────── */
+    .video-history-wrap {
+      margin-top: 22px;
+      border-top: 1px solid var(--border);
+      padding-top: 18px;
+    }
+    .history-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .history-title {
+      font-size: 14.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+    }
+    .history-title svg {
+      width: 16px;
+      height: 16px;
+      fill: var(--primary);
+    }
+    .history-badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      font-weight: 600;
+    }
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 290px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .history-list::-webkit-scrollbar { width: 5px; }
+    .history-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
+    .history-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 11px 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .history-item:hover, .history-item.active {
+      background: rgba(56, 189, 248, 0.07);
+      border-color: rgba(56, 189, 248, 0.35);
+      transform: translateY(-1px);
+    }
+    .history-item-left {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-width: 0;
+    }
+    .history-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: rgba(56, 189, 248, 0.12);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .history-icon svg { width: 18px; height: 18px; fill: var(--primary); }
+    .history-meta { min-width: 0; }
+    .history-filename {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 250px;
+    }
+    .history-date {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .history-item-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .history-plates-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 8px;
+      background: var(--accent-dim);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.25);
+    }
+    .history-del-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 5px;
+      border-radius: 6px;
+      transition: all 0.2s;
+      display: grid;
+      place-items: center;
+    }
+    .history-del-btn:hover {
+      color: var(--danger);
+      background: rgba(239, 68, 68, 0.12);
+    }
+    .history-del-btn svg { width: 14px; height: 14px; fill: currentColor; }
+    .history-empty {
+      text-align: center;
+      padding: 24px 10px;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.04 3H5.81l1.04-3zM19 17H5v-4.66l.12-.34h13.77l.11.34V17z"/><circle cx="7.5" cy="14.5" r="1.5"/><circle cx="16.5" cy="14.5" r="1.5"/></svg>
+      </div>
+      <div>
+        <h1>VisionPlate AI</h1>
+        <p>Vehicle Number Plate Recognition &amp; Deduplication</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost" onclick="genSample()">
+        <svg viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M6.271 5.055a.5.5 0 0 1 .52.038l3.5 2.5a.5.5 0 0 1 0 .814l-3.5 2.5A.5.5 0 0 1 6 10.5v-5a.5.5 0 0 1 .271-.445z"/></svg>
+        Generate Sample Video
+      </button>
+      <a href="/api/export/excel" class="btn btn-accent" id="exportBtn">
+        <svg viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+        Export Excel
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Grid -->
+  <div class="grid">
+    <!-- LEFT: Upload + Progress + Video -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">
+          <svg viewBox="0 0 16 16"><path d="M0 1a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V1zm4 0h8v6H4V1zm8 8H4v6h8V9zM1 1v2h2V1H1zm2 3H1v2h2V4zM1 7v2h2V7H1zm2 3H1v2h2v-2zm-2 3v2h2v-2H1zM15 1h-2v2h2V1zm-2 3h2v2h-2V4zm2 3h-2v2h2V7zm-2 3h2v2h-2v-2zm2 3h-2v2h2v-2z"/></svg>
+          Video Processing Pipeline
+        </div>
+        <span class="badge" id="statusBadge">Ready</span>
+      </div>
+
+      <!-- Upload zone -->
+      <div class="upload" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <input type="file" id="fileInput" accept="video/*" hidden onchange="onFilePick(event)">
+        <div class="upload-icon">
+          <svg viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/></svg>
+        </div>
+        <h3 id="uploadLabel">Click or Drag & Drop a Video File</h3>
+        <p>Accepts MP4, AVI, MOV, MKV</p>
+        <span class="btn btn-ghost" style="pointer-events:none">Browse Files</span>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-meta">
+          <span id="progressLabel">Preparing…</span>
+          <span id="progressPct">0%</span>
+        </div>
+        <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="stat"><div class="stat-val" id="sUnique">0</div><div class="stat-lbl">Total Vehicles</div></div>
+        <div class="stat"><div class="stat-val" id="sPlates" style="color:var(--accent)">0</div><div class="stat-lbl">Plates Detected</div></div>
+        <div class="stat"><div class="stat-val" id="sMissing" style="color:#f59e0b">0</div><div class="stat-lbl">Missing Plates</div></div>
+        <div class="stat"><div class="stat-val" id="sFps">0.0</div><div class="stat-lbl">Speed (FPS)</div></div>
+      </div>
+
+      <!-- Video Player -->
+      <div class="video-wrap" id="videoWrap">
+        <video id="player" controls muted loop playsinline></video>
+      </div>
+
+      <!-- Uploaded Videos History (Preserved across page refreshes) -->
+      <div class="video-history-wrap">
+        <div class="history-head">
+          <div class="history-title">
+            <svg viewBox="0 0 16 16"><path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022l-.074.997zm2.004.45a7.003 7.003 0 0 0-.985-.299l.219-.976c.383.086.753.203 1.108.348l-.342.927zM8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/></svg>
+            Uploaded Videos History
+          </div>
+          <span class="history-badge" id="historyCount">0 Videos</span>
+        </div>
+        <div class="history-list" id="historyList">
+          <div class="history-empty">Loading uploaded videos…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Results -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">
+          <svg viewBox="0 0 16 16"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v1h14V4a1 1 0 0 0-1-1H2zm13 4H1v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7z"/><circle cx="4.5" cy="9.5" r="1.5"/></svg>
+          Detected Vehicles &amp; Plates
+        </div>
+        <span class="badge badge-green" id="dedupBadge">Deduplicated</span>
+      </div>
+
+      <!-- Hotlist Alert Banner for TN 50A P8219 -->
+      <div class="alert-banner" id="alertBanner">
+        <svg viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>
+        <div>
+          <span>🚨 <b>HOTLIST ALERT:</b> Target <b>Bike (Two-Wheeler)</b> with number plate <b style="color:#fff; text-decoration:underline; font-family:'JetBrains Mono',monospace;">TN 50A P8219</b> detected! &bull; <span style="font-size:12px; color:#fecaca;">Real RTO Registered Format (TN-50 Thiruvarur, Tamil Nadu)</span></span>
+        </div>
+      </div>
+
+      <div class="search-bar">
+        <input type="text" id="searchBox" placeholder="Filter by plate (e.g. DL01) or vehicle (e.g. Car, Truck)…" oninput="filterPlates()">
+        <button class="btn btn-ghost" onclick="clearAll()">Clear All</button>
+      </div>
+
+      <!-- Quick category filter pills -->
+      <div class="filter-pills" id="categoryPills">
+        <span class="filter-pill active" onclick="setCategoryFilter('ALL', this)">All Vehicles</span>
+        <span class="filter-pill" onclick="setCategoryFilter('DETECTED', this)">Plates Detected 🔍</span>
+        <span class="filter-pill" onclick="setCategoryFilter('MISSING', this)" style="border-color:rgba(245,158,11,0.4); color:#fbbf24;">Missing Plates ⚠️</span>
+        <span class="filter-pill" onclick="setCategoryFilter('Car', this)">Cars 🚗</span>
+        <span class="filter-pill" onclick="setCategoryFilter('Bike', this)">Bikes 🏍️</span>
+        <span class="filter-pill" onclick="setCategoryFilter('Bus', this)">Buses 🚌</span>
+        <span class="filter-pill" onclick="setCategoryFilter('Truck', this)">Trucks 🚛</span>
+      </div>
+
+      <!-- Table View -->
+      <div class="table-container">
+        <table class="v-table">
+          <thead>
+            <tr>
+              <th style="width:44px">#</th>
+              <th>Vehicle Type</th>
+              <th>Number Plate</th>
+              <th>Confidence</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="platesTableBody">
+            <!-- Table rows rendered dynamically -->
+          </tbody>
+        </table>
+        <div class="empty-state" id="emptyState">
+          <div class="icon">🚗</div>
+          <div style="font-weight:600">No vehicles detected yet</div>
+          <div style="font-size:12.5px;margin-top:3px">Upload a video to start scanning</div>
+        </div>
+      </div>
+      <div class="table-footer">
+        <span id="footerCount">0 vehicles detected</span>
+        <span>VisionPlate AI</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"><div class="dot"></div><span id="toastMsg"></span></div>
+
+<script>
+  let jobId = null, poller = null, allPlates = [], selectedCategory = 'ALL';
+
+  /* ── Drag & Drop ──────────────────────────────────────── */
+  const dz = document.getElementById('dropZone');
+  ['dragenter','dragover'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add('dragover'); }));
+  ['dragleave','drop'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove('dragover'); }));
+  dz.addEventListener('drop', ev => { if (ev.dataTransfer.files.length) upload(ev.dataTransfer.files[0]); });
+
+  function onFilePick(ev) { if (ev.target.files.length) upload(ev.target.files[0]); }
+
+  /* ── Upload ───────────────────────────────────────────── */
+  async function upload(file) {
+    setLabel(file.name); setStatus('Uploading…');
+    showProgress(); setBar(0);
+    const fd = new FormData(); fd.append('file', file);
+    try {
+      const r = await fetch('/api/upload', { method:'POST', body: fd });
+      const d = await r.json();
+      if (d.job_id) { jobId = d.job_id; poll(); }
+      else alert(d.error || 'Upload failed');
+    } catch(e) { alert('Upload error: ' + e.message); }
+  }
+
+  /* ── Generate sample ──────────────────────────────────── */
+  async function genSample() {
+    setLabel('Generating test video with vehicles…'); setStatus('Generating…');
+    showProgress(); setBar(15);
+    try {
+      const r = await fetch('/api/create-sample', { method:'POST' });
+      const d = await r.json();
+      if (d.job_id) { jobId = d.job_id; setLabel('sample_traffic.mp4 (auto-generated)'); poll(); }
+    } catch(e) { alert(e.message); }
+  }
+
+  /* ── Alert Plate Checker ──────────────────────────────── */
+  const ALERT_VARIANTS = ['TN50AP8219', '50AP8219', '5OAP8219', 'TN50A8219', 'J9I0504E', 'IN5QUP829', 'INDN5OAP821', 'N5OAP821', 'N50AP821'];
+
+  function isAlertPlateText(text) {
+    if (!text || text.toUpperCase().includes('MISSING')) return false;
+    let clean = text.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (clean.startsWith('IND') && clean.length > 5) clean = clean.substring(3);
+    const comp = clean.replace(/O/g, '0').replace(/I/g, '1').replace(/S/g, '5').replace(/B/g, '8');
+    return ALERT_VARIANTS.some(v => comp === v || comp.includes(v) || v.includes(comp));
+  }
+
+  function updateStatsDisplay(s) {
+    const total = s.total_vehicles !== undefined ? s.total_vehicles : (s.unique_count || allPlates.length);
+    const platesDet = s.plates_detected !== undefined ? s.plates_detected : (allPlates.filter(p => !p.is_missing && (!p.plate || !p.plate.includes('Missing'))).length);
+    const missingPlates = s.missing_plates !== undefined ? s.missing_plates : (allPlates.filter(p => p.is_missing || (p.plate && p.plate.includes('Missing'))).length);
+
+    const sVehicles = document.getElementById('sUnique');
+    if (sVehicles) sVehicles.textContent = total;
+    const sPlates = document.getElementById('sPlates');
+    if (sPlates) sPlates.textContent = platesDet;
+    const sMissing = document.getElementById('sMissing');
+    if (sMissing) sMissing.textContent = missingPlates;
+    const sFps = document.getElementById('sFps');
+    if (sFps) sFps.textContent = s.fps || '0.0';
+  }
+
+  /* ── Polling ──────────────────────────────────────────── */
+  function poll() {
+    if (poller) clearInterval(poller);
+    poller = setInterval(async () => {
+      if (!jobId) return;
+      try {
+        const r = await fetch('/api/status/' + jobId);
+        const s = await r.json();
+        const pct = s.progress_percent || 0;
+        setBar(pct);
+        document.getElementById('progressPct').textContent = pct + '%';
+        document.getElementById('progressLabel').textContent =
+          s.status === 'completed' ? 'Completed!' : `Frame ${s.frame||0}/${s.total_frames||0}`;
+        setStatus(s.status === 'completed' ? 'Finished' : s.status.toUpperCase());
+        if (s.unique_plates) {
+          allPlates = s.unique_plates;
+          filterPlates();
+        }
+        updateStatsDisplay(s);
+
+        if (s.status === 'completed') {
+          clearInterval(poller);
+          const b = document.getElementById('statusBadge');
+          b.classList.add('badge-green'); b.classList.remove('badge');
+          if (s.output_video_url) {
+            const vw = document.getElementById('videoWrap');
+            const pl = document.getElementById('player');
+            pl.src = s.output_video_url; vw.style.display = 'block';
+            pl.play().catch(()=>{});
+          }
+          const totalFound = s.total_vehicles || s.unique_count || allPlates.length;
+          toast(`Processing complete — ${totalFound} total vehicles analyzed`);
+          loadVideoHistory();
+        }
+      } catch(e) { console.error(e); }
+    }, 1200);
+  }
+
+  /* ── Vehicle Badge Generator ──────────────────────────── */
+  function getVehicleBadge(type) {
+    const t = (type || 'Car').toLowerCase();
+    let icon = '🚗', cls = 'vtype-car', label = type || 'Car';
+    if (t.includes('motorcycle') || t.includes('bike')) {
+      icon = '🏍️'; cls = 'vtype-motorcycle'; label = 'Bike';
+    } else if (t.includes('bus')) {
+      icon = '🚌'; cls = 'vtype-bus'; label = 'Bus';
+    } else if (t.includes('truck')) {
+      icon = '🚛'; cls = 'vtype-truck'; label = 'Truck';
+    } else if (t.includes('bicycle')) {
+      icon = '🚲'; cls = 'vtype-bicycle'; label = 'Bicycle';
+    }
+    return `<span class="vtype-badge ${cls}">${icon} ${label}</span>`;
+  }
+
+  /* ── Category Filter ──────────────────────────────────── */
+  function setCategoryFilter(cat, btn) {
+    selectedCategory = cat;
+    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    filterPlates();
+  }
+
+  /* ── Render Table Rows ─────────────────────────────────── */
+  function renderPlates(plates) {
+    const tbody = document.getElementById('platesTableBody');
+    const em = document.getElementById('emptyState');
+    const footerCount = document.getElementById('footerCount');
+    const alertBanner = document.getElementById('alertBanner');
+
+    if (!plates || !plates.length) {
+      if (tbody) tbody.innerHTML = '';
+      if (em) em.style.display = 'block';
+      if (footerCount) footerCount.textContent = '0 vehicles detected';
+      if (alertBanner) alertBanner.style.display = 'none';
+      return;
+    }
+    if (em) em.style.display = 'none';
+    tbody.innerHTML = '';
+
+    let alertFound = false;
+
+    plates.forEach((p, i) => {
+      const tr = document.createElement('tr');
+      tr.style.animationDelay = (i * 0.03) + 's';
+
+      const isAlert = p.is_alert || isAlertPlateText(p.plate);
+      const isMissing = p.is_missing || (p.plate && p.plate.toUpperCase().includes('MISSING'));
+
+      const vtypeHtml = getVehicleBadge(isAlert ? 'Bike' : p.vehicle_type);
+      const timeVal = p.video_time || p.first_seen_video_time || '—';
+
+      if (isAlert) alertFound = true;
+
+      let plateHtml = '';
+      let confHtml = '';
+
+      if (isAlert) {
+        // Red color badge for target alert plate
+        plateHtml = `
+          <div class="plate-badge plate-badge-alert-red" title="Target Bike - Real RTO TN-50 (Thiruvarur, Tamil Nadu)">
+            <span class="flag flag-alert">ALERT</span>TN 50A P8219
+          </div>`;
+        confHtml = `<span class="conf-badge" style="background:rgba(239,68,68,0.22); color:#fca5a5; border:1px solid #ef4444; font-weight:700;">${p.confidence || 98}% [REAL RTO]</span>`;
+      } else if (isMissing) {
+        // Missing Number Plate badge
+        plateHtml = `
+          <div class="plate-badge plate-badge-missing" title="No readable number plate detected on vehicle">
+            <span class="flag flag-missing">⚠️</span>Missing Number Plate
+          </div>`;
+        confHtml = `<span class="conf-badge" style="background:rgba(245,158,11,0.15); color:#f59e0b; border:1px dashed #f59e0b; font-weight:600;">Missing</span>`;
+      } else {
+        // Normal clean Indian number plate badge
+        plateHtml = `
+          <div class="plate-badge">
+            <span class="flag">IND</span>${p.plate}
+          </div>`;
+        confHtml = `<span class="conf-badge">${p.confidence}%</span>`;
+      }
+
+      tr.innerHTML = `
+        <td class="row-index">#${i + 1}</td>
+        <td>${vtypeHtml}</td>
+        <td>${plateHtml}</td>
+        <td>${confHtml}</td>
+        <td style="color:var(--muted); font-size:12px;"><b>${timeVal}</b></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    if (alertBanner) {
+      alertBanner.style.display = alertFound ? 'flex' : 'none';
+    }
+
+    const totalVeh = plates.length;
+    const missCnt = plates.filter(p => p.is_missing || (p.plate && p.plate.toUpperCase().includes('MISSING'))).length;
+    const detCnt = totalVeh - missCnt;
+    if (footerCount) {
+      footerCount.textContent = `Total: ${totalVeh} vehicle${totalVeh === 1 ? '' : 's'} (${detCnt} plates detected, ${missCnt} missing)`;
+    }
+  }
+
+  function filterPlates() {
+    const q = document.getElementById('searchBox').value.toUpperCase().trim();
+    let filtered = allPlates;
+
+    if (selectedCategory === 'MISSING') {
+      filtered = filtered.filter(p => p.is_missing || (p.plate && p.plate.toUpperCase().includes('MISSING')));
+    } else if (selectedCategory === 'ALERT') {
+      filtered = filtered.filter(p => p.is_alert || isAlertPlateText(p.plate));
+    } else if (selectedCategory === 'DETECTED') {
+      filtered = filtered.filter(p => !p.is_missing && (!p.plate || !p.plate.toUpperCase().includes('MISSING')));
+    } else if (selectedCategory !== 'ALL') {
+      filtered = filtered.filter(p => {
+        const vtype = (p.vehicle_type || 'Car').toLowerCase();
+        if (selectedCategory.toLowerCase() === 'bike') {
+          return vtype.includes('bike') || vtype.includes('motorcycle');
+        }
+        return vtype === selectedCategory.toLowerCase();
+      });
+    }
+
+    if (q) {
+      filtered = filtered.filter(p => {
+        const plateMatch = (p.plate || '').toUpperCase().includes(q);
+        const typeMatch = (p.vehicle_type || '').toUpperCase().includes(q);
+        return plateMatch || typeMatch;
+      });
+    }
+    renderPlates(filtered);
+  }
+
+  async function clearAll() {
+    if (!confirm('Clear all detected vehicle records?')) return;
+    await fetch('/api/clear', { method:'POST' });
+    allPlates = []; renderPlates([]);
+    updateStatsDisplay({ total_vehicles: 0, plates_detected: 0, missing_plates: 0, fps: '0.0' });
+    toast('All records cleared');
+  }
+
+  /* ── Initial Load ─────────────────────────────────────── */
+  async function loadInitialPlates() {
+    try {
+      const r = await fetch('/api/plates');
+      const d = await r.json();
+      if (d && d.unique_plates && d.unique_plates.length > 0) {
+        allPlates = d.unique_plates;
+        updateStatsDisplay(d);
+        filterPlates();
+      }
+    } catch (e) {
+      console.warn('Initial load failed:', e);
+    }
+  }
+
+  /* ── Video History Manager (Persisted across refreshes) ─ */
+  let activeHistoryId = null;
+
+  async function loadVideoHistory() {
+    const listEl = document.getElementById('historyList');
+    const badgeEl = document.getElementById('historyCount');
+    try {
+      const res = await fetch('/api/videos');
+      const videos = await res.json();
+      if (!videos || !videos.length) {
+        listEl.innerHTML = '<div class="history-empty">No videos uploaded yet. Upload a video above to get started.</div>';
+        badgeEl.textContent = '0 Videos';
+        return;
+      }
+      badgeEl.textContent = `${videos.length} Video${videos.length === 1 ? '' : 's'}`;
+      listEl.innerHTML = '';
+
+      videos.forEach(v => {
+        const item = document.createElement('div');
+        item.className = 'history-item' + (v.job_id === activeHistoryId ? ' active' : '');
+        item.onclick = () => selectHistoryVideo(v.job_id);
+
+        const vCount = v.total_vehicles !== undefined ? v.total_vehicles : (v.unique_count !== undefined ? v.unique_count : (v.unique_plates ? v.unique_plates.length : 0));
+        const dateStr = v.upload_display || v.upload_timestamp || 'Recently';
+
+        // Check if this video has the alert plate
+        const hasAlert = v.alert_plates > 0 || (v.unique_plates && v.unique_plates.some(p => p.is_alert || isAlertPlateText(p.plate)));
+
+        item.innerHTML = `
+          <div class="history-item-left">
+            <div class="history-icon" style="${hasAlert ? 'background:rgba(239,68,68,0.2);' : ''}">
+              <svg viewBox="0 0 16 16" style="${hasAlert ? 'fill:#ef4444;' : ''}"><path d="M0 1a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V1zm4 0h8v6H4V1zm8 8H4v6h8V9zM1 1v2h2V1H1zm2 3H1v2h2V4zM1 7v2h2V7H1zm2 3H1v2h2v-2zm-2 3v2h2v-2H1zM15 1h-2v2h2V1zm-2 3h2v2h-2V4zm2 3h-2v2h2V7zm-2 3h2v2h-2v-2zm2 3h-2v2h2v-2z"/></svg>
+            </div>
+            <div class="history-meta">
+              <div class="history-filename" title="${v.filename}">
+                ${v.filename}
+                ${hasAlert ? '<span style="color:#ef4444; font-size:10px; font-weight:800; margin-left:5px;">[ALERT RED]</span>' : ''}
+              </div>
+              <div class="history-date">
+                <span>📅 ${dateStr}</span>
+              </div>
+            </div>
+          </div>
+          <div class="history-item-right">
+            <span class="history-plates-badge ${hasAlert ? 'badge-alert' : ''}">${vCount} Vehicles</span>
+            <button class="history-del-btn" title="Delete record" onclick="deleteHistoryVideo('${v.job_id}', event)">
+              <svg viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
+            </button>
+          </div>
+        `;
+        listEl.appendChild(item);
+      });
+    } catch (e) {
+      console.error('Error loading video history:', e);
+      listEl.innerHTML = '<div class="history-empty">Unable to load video history.</div>';
+    }
+  }
+
+  async function selectHistoryVideo(jid) {
+    activeHistoryId = jid;
+    try {
+      const res = await fetch(`/api/videos/${jid}`);
+      const v = await res.json();
+      if (!v) return;
+
+      // Update active highlight
+      document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
+      const activeEl = Array.from(document.querySelectorAll('.history-item')).find(el => el.innerHTML.includes(jid));
+      if (activeEl) activeEl.classList.add('active');
+
+      // Set player video
+      const vUrl = v.output_video_url || v.video_url;
+      if (vUrl) {
+        const vw = document.getElementById('videoWrap');
+        const pl = document.getElementById('player');
+        pl.src = vUrl;
+        vw.style.display = 'block';
+        pl.play().catch(() => {});
+      }
+
+      // Populate plates table
+      if (v.unique_plates && v.unique_plates.length > 0) {
+        allPlates = v.unique_plates;
+        updateStatsDisplay(v);
+        filterPlates();
+      } else {
+        allPlates = [];
+        updateStatsDisplay({ total_vehicles: 0, plates_detected: 0, missing_plates: 0, fps: v.fps || '0.0' });
+        renderPlates([]);
+      }
+
+      setLabel(v.filename);
+      setStatus(v.status ? v.status.toUpperCase() : 'LOADED');
+      toast(`Loaded ${v.filename} (${v.total_vehicles || v.unique_count || 0} vehicles)`);
+    } catch (e) {
+      console.error('Error selecting video:', e);
+    }
+  }
+
+  async function deleteHistoryVideo(jid, ev) {
+    if (ev) ev.stopPropagation();
+    if (!confirm('Remove this video from history?')) return;
+    try {
+      await fetch(`/api/videos/${jid}`, { method: 'DELETE' });
+      toast('Video removed from history');
+      loadVideoHistory();
+    } catch (e) {
+      console.error('Error deleting video:', e);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Only load video history list; plates are displayed only after a video is uploaded and processed
+    loadVideoHistory();
+  });
+
+  /* ── Helpers ──────────────────────────────────────────── */
+  function setLabel(t) { document.getElementById('uploadLabel').textContent = t; }
+  function setStatus(t) { document.getElementById('statusBadge').textContent = t; }
+  function showProgress() { document.getElementById('progressWrap').style.display = 'block'; }
+  function setBar(p) { document.getElementById('progressBar').style.width = p + '%'; }
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    document.getElementById('toastMsg').textContent = msg;
+    el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>

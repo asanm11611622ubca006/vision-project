@@ -1,0 +1,36 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Large Video files (prevent GitHub 100MB file limit errors)
+*.mp4
+*.avi
+*.mov
+*.mkv
+data/uploads/*
+!data/uploads/.gitkeep
+data/outputs/*
+!data/outputs/.gitkeep
+data/plates/*
+!data/plates/.gitkeep
+
+# Temporary / Scratch data
+data/cctv_*.jpg
+data/f_*.jpg
+data/frame_*.jpg
+data/prep_*.jpg
+data/test_*
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
